@@ -96,7 +96,7 @@ class RunvoyDocsGenerator:
         return content
 
     def write_markdown_files(self, files: dict[str, str]):
-        """Write fetched markdown files to local docs directory."""
+        """Write fetched markdown files to local docs directory, flattening the hierarchy."""
         print("\nWriting markdown files to local docs directory...")
 
         # Clear and create docs directory
@@ -105,16 +105,21 @@ class RunvoyDocsGenerator:
         self.local_docs_dir.mkdir(parents=True)
 
         for file_path, content in files.items():
+            # Flatten hierarchy: docs/SOMETHING.md -> SOMETHING.md
+            flattened_path = file_path
+            if file_path.startswith("docs/"):
+                flattened_path = file_path[5:]  # Remove "docs/" prefix
+
             # Rewrite links in content
             content = self.rewrite_links(content, file_path)
 
             # Create nested directories if needed
-            full_path = self.local_docs_dir / file_path
+            full_path = self.local_docs_dir / flattened_path
             full_path.parent.mkdir(parents=True, exist_ok=True)
 
             with open(full_path, "w") as f:
                 f.write(content)
-            print(f"  ✓ {file_path}")
+            print(f"  ✓ {flattened_path}")
 
     def create_mkdocs_config(self, files: dict[str, str]):
         """Generate mkdocs.yml configuration."""
@@ -145,36 +150,29 @@ class RunvoyDocsGenerator:
         print(f"  ✓ mkdocs.yml created")
 
     def _build_nav(self, files: dict[str, str]) -> list:
-        """Build navigation structure from files."""
+        """Build navigation structure from files (flattened)."""
         nav = []
 
         # Add index if it exists
         if "README.md" in files:
             nav.append({"Home": "README.md"})
 
-        # Group files by directory
-        dirs = {}
+        # Flatten all files and add to nav in sorted order
+        flattened_files = []
         for file_path in sorted(files.keys()):
             if file_path == "README.md":
                 continue
 
-            parts = file_path.split("/")
-            if len(parts) > 1:
-                dir_name = parts[0]
-                if dir_name not in dirs:
-                    dirs[dir_name] = []
-                dirs[dir_name].append(file_path)
-            else:
-                # Root level files
-                nav.append({file_path.replace(".md", ""): file_path})
+            # Flatten docs/ prefix
+            display_path = file_path
+            if file_path.startswith("docs/"):
+                display_path = file_path[5:]  # Remove "docs/" prefix
 
-        # Add directories to nav
-        for dir_name in sorted(dirs.keys()):
-            section = {dir_name: []}
-            for file_path in dirs[dir_name]:
-                file_name = file_path.split("/")[-1]
-                section[dir_name].append({file_name.replace(".md", ""): file_path})
-            nav.append(section)
+            flattened_files.append((display_path, display_path))
+
+        # Add all files to nav
+        for display_name, file_ref in sorted(flattened_files):
+            nav.append({display_name.replace(".md", ""): file_ref})
 
         return nav
 
