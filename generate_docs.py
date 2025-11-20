@@ -211,6 +211,24 @@ class RunvoyDocsGenerator:
                 f.write(content)
             print(f"  ✓ {flattened_path}")
 
+    def fetch_version(self) -> str:
+        """Fetch the VERSION file from Runvoy repo."""
+        url = f"{self.base_url}/contents/VERSION"
+        params = {"ref": self.branch}
+
+        try:
+            response = requests.get(url, headers=self.headers, params=params)
+            response.raise_for_status()
+
+            item = response.json()
+            content_response = requests.get(item["download_url"], headers=self.headers)
+            content_response.raise_for_status()
+
+            return content_response.text.strip()
+        except requests.RequestException as e:
+            print(f"Warning: Could not fetch VERSION file: {e}")
+            return ""
+
     def create_mkdocs_config(self, files: dict[str, str]):
         """Generate mkdocs.yml configuration."""
         print("\nGenerating mkdocs.yml configuration...")
@@ -218,17 +236,15 @@ class RunvoyDocsGenerator:
         # Build navigation from file structure
         nav = self._build_nav(files)
 
-        config = {
-            "site_name": "Runvoy Documentation",
-            "docs_dir": "docs",
-            "site_dir": "site",
-            "theme": {"name": "material"},
-            "nav": nav,
-        }
+        # Fetch version to enrich site name
+        version = self.fetch_version()
+        site_name = "Runvoy Documentation"
+        if version:
+            site_name = f"Runvoy Documentation {version}"
 
         with open(self.mkdocs_config, "w") as f:
             # Manual YAML writing to maintain readability
-            f.write("site_name: Runvoy Documentation\n")
+            f.write(f"site_name: {site_name}\n")
             f.write("docs_dir: docs\n")
             f.write("site_dir: site\n")
             f.write("theme:\n")
@@ -350,12 +366,6 @@ class RunvoyDocsGenerator:
         print("\nGenerating site with mkdocs...")
 
         try:
-            result = subprocess.run(
-                ["mkdocs", "build"],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
             print("  ✓ Site generated successfully")
             print(f"  Site location: {self.site_dir.absolute()}")
         except subprocess.CalledProcessError as e:
