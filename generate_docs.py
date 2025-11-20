@@ -15,6 +15,7 @@ Features:
 - Supports GitHub Pages deployment via GitHub Actions
 """
 
+import base64
 import os
 import re
 import shutil
@@ -48,56 +49,59 @@ class RunvoyDocsGenerator:
 
     def fetch_markdown_files(self) -> dict[str, str]:
         """
-        Fetch all markdown files from the Runvoy repo.
+        Fetch all markdown files from the Runvoy repo using the Git Trees API.
         Returns a dict of {file_path: content}
         """
         print(f"Fetching markdown files from {self.runvoy_repo}...")
 
         files = {}
         try:
-            self._fetch_tree("", "", files)
+            # Get the commit SHA for the branch
+            ref_url = f"{self.base_url}/git/refs/heads/{self.branch}"
+            ref_response = requests.get(ref_url, headers=self.headers)
+            ref_response.raise_for_status()
+            commit_sha = ref_response.json()["object"]["sha"]
+
+            # Get the recursive tree (all files in one call)
+            tree_url = f"{self.base_url}/git/trees/{commit_sha}"
+            tree_params = {"recursive": "1"}
+            tree_response = requests.get(tree_url, headers=self.headers, params=tree_params)
+            tree_response.raise_for_status()
+            tree_data = tree_response.json()
+
+            # Filter and fetch markdown files
+            for item in tree_data.get("tree", []):
+                if item["type"] != "blob":  # Skip directories
+                    continue
+
+                file_path = item["path"]
+
+                # Skip excluded files/directories
+                path_parts = file_path.split("/")
+                if any(part.startswith(pattern) for part in path_parts for pattern in self.exclude_patterns):
+                    continue
+
+                # Only process markdown files
+                if not file_path.endswith(".md"):
+                    continue
+
+                # Fetch the file content using the blob SHA
+                blob_url = f"{self.base_url}/git/blobs/{item['sha']}"
+                blob_response = requests.get(blob_url, headers=self.headers)
+                blob_response.raise_for_status()
+                blob_data = blob_response.json()
+
+                # Decode base64 content
+                content = base64.b64decode(blob_data["content"]).decode("utf-8")
+                files[file_path] = content
+                print(f"  ✓ {file_path}")
+
         except requests.RequestException as e:
             print(f"Error fetching files: {e}")
             if not files:
                 print("No files could be fetched. Skipping generation.")
                 return {}
         return files
-
-    def _fetch_tree(self, path: str, relative_path: str, files: dict[str, str]):
-        """Recursively fetch files from a directory tree."""
-        url = f"{self.base_url}/contents/{path}" if path else f"{self.base_url}/contents"
-        params = {"ref": self.branch}
-
-        try:
-            response = requests.get(url, headers=self.headers, params=params)
-            response.raise_for_status()
-
-            items = response.json()
-            if not isinstance(items, list):
-                items = [items]
-
-            for item in items:
-                # Skip excluded directories
-                if any(item["name"].startswith(pattern) for pattern in self.exclude_patterns):
-                    continue
-
-                if item["type"] == "file" and item["name"].endswith(".md"):
-                    # Fetch the file content
-                    content_response = requests.get(
-                        item["download_url"], headers=self.headers
-                    )
-                    content_response.raise_for_status()
-
-                    file_relative_path = f"{relative_path}/{item['name']}" if relative_path else item["name"]
-                    files[file_relative_path] = content_response.text
-                    print(f"  ✓ {file_relative_path}")
-
-                elif item["type"] == "dir":
-                    new_relative = f"{relative_path}/{item['name']}" if relative_path else item["name"]
-                    self._fetch_tree(item["path"], new_relative, files)
-
-        except requests.RequestException as e:
-            print(f"Error fetching {path}: {e}")
 
     def rewrite_links(self, content: str, file_path: str) -> str:
         """

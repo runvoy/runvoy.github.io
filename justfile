@@ -1,13 +1,13 @@
 # Serve the documentation site locally
-dev-server:
+server:
 	uv run mkdocs serve
 
 # Build the documentation site locally
-dev-build:
+build:
 	uv run mkdocs build
 
 # Generate the documentation site
-dev-generate:
+generate:
 	uv run generate_docs.py
 
 # Setup the project
