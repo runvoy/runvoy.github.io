@@ -44,3 +44,4 @@ Thumbs.db
 
 # uv
 uv.lock
+.envrc

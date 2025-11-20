@@ -2,7 +2,17 @@
 """
 Runvoy Docs Generator
 
-Fetches markdown files from the 🚀 Runvoy repo and generates a docs site using mkdocs.
+Fetches markdown files from the Runvoy repo and generates a docs site using mkdocs.
+
+Features:
+- Fetches all markdown files from the repository (root + subdirectories)
+- Flattens hierarchy: docs/FILE.md becomes FILE.md in the generated site
+- Rewrites links:
+  * Removes docs/ prefix from internal links
+  * Strips links to non-documentation files (.yml, .yaml, etc.)
+  * Converts broken relative links to anchors
+- Generates mkdocs config with Material theme
+- Supports GitHub Pages deployment via GitHub Actions
 """
 
 import os
@@ -44,7 +54,13 @@ class RunvoyDocsGenerator:
         print(f"Fetching markdown files from {self.runvoy_repo}...")
 
         files = {}
-        self._fetch_tree("", "", files)
+        try:
+            self._fetch_tree("", "", files)
+        except requests.RequestException as e:
+            print(f"Error fetching files: {e}")
+            if not files:
+                print("No files could be fetched. Skipping generation.")
+                return {}
         return files
 
     def _fetch_tree(self, path: str, relative_path: str, files: dict[str, str]):
@@ -86,12 +102,82 @@ class RunvoyDocsGenerator:
     def rewrite_links(self, content: str, file_path: str) -> str:
         """
         Rewrite markdown links to match the generated site structure.
-        Replaces relative docs/ links with the correct site paths.
+        - Removes docs/ prefix from internal markdown links, keeping .md extension
+        - Converts non-markdown file links to GitHub repository URLs
+        - Handles bare documentation file references (e.g., CLI -> CLI.md)
+        - Handles relative paths by converting to GitHub URLs
         """
-        # Remove docs/ prefix from links
-        content = re.sub(r'\[([^\]]+)\]\(docs/([^\)]+)\.md\)', r'[\1](\2)', content)
-        # Also handle links without .md extension
-        content = re.sub(r'\[([^\]]+)\]\(docs/([^\)]+)\)', r'[\1](\2)', content)
+        github_base = f"https://github.com/{self.runvoy_repo}/blob/{self.branch}"
+
+        # Convert non-markdown file links to GitHub repository URLs
+        # Pattern: [text](path/to/file.ext) where ext is not md
+        # This handles .runvoy/*, *.yml, *.yaml, *.json, LICENSE, CHANGELOG, etc.
+        def replace_non_markdown(match):
+            link_text = match.group(1)
+            full_path = match.group(2)
+            prefix = match.group(3)  # ./ or . or None
+            file_path = match.group(4)  # filename without ./ prefix
+
+            # If there's a . prefix (e.g., .runvoy/), reconstruct with it
+            if prefix == ".":
+                file_path = f".{file_path}"
+            # If ./ prefix, just use the file_path (relative prefix already removed)
+
+            return f"[{link_text}]({github_base}/{file_path})"
+
+        # Match [text](optional_prefix/file.extension) where extension is not md
+        # Group 2: full path with optional prefix
+        # Group 3: optional prefix (./ or .)
+        # Group 4: filename after any ./  prefix
+        content = re.sub(
+            r'\[([^\]]+)\]\(((\.[/]?)?([^\)]+\.(?!md)[a-zA-Z]+))\)',
+            replace_non_markdown,
+            content
+        )
+
+        # Remove docs/ prefix from markdown links with .md extension
+        # (e.g., [text](docs/FILE.md) -> [text](FILE.md))
+        content = re.sub(r'\[([^\]]+)\]\(docs/([^\)]+\.md)\)', r'[\1](\2)', content)
+
+        # Remove docs/ prefix and add .md extension if missing
+        # (e.g., [text](docs/FILE) -> [text](FILE.md))
+        content = re.sub(r'\[([^\]]+)\]\(docs/([^\)]+)\)', r'[\1](\2.md)', content)
+
+        # Handle bare markdown file references without docs/ prefix
+        # (e.g., [text](CLI) -> [text](CLI.md))
+        # This matches links that look like filenames but don't have file extensions
+        # and aren't URLs (no :// in them)
+        def add_md_extension(match):
+            link_text = match.group(1)
+            link_target = match.group(2)
+            # Don't add .md if it's already there or if it looks like a URL or anchor
+            if not link_target.endswith('.md') and '://' not in link_target and not link_target.startswith('#'):
+                return f"[{link_text}]({link_target}.md)"
+            return match.group(0)
+
+        content = re.sub(r'\[([^\]]+)\]\(([A-Z][A-Z_]+)\)', add_md_extension, content)
+
+        # Handle markdown files with relative paths (./FILE.md)
+        # Convert to GitHub URLs since they're not in the docs directory
+        content = re.sub(
+            r'\[([^\]]+)\]\(\.\/([^\)]+\.md)\)',
+            lambda m: f"[{m.group(1)}]({github_base}/{m.group(2)})",
+            content
+        )
+
+        # Handle non-markdown files with relative paths (./FILE or ./FILE.ext)
+        # Convert to GitHub URLs
+        content = re.sub(
+            r'\[([^\]]+)\]\(\.\/([^\)]+\.(?!md)[^\)]*)\)',
+            lambda m: f"[{m.group(1)}]({github_base}/{m.group(2)})",
+            content
+        )
+        # Also handle files without extension (like ./VERSION)
+        content = re.sub(
+            r'\[([^\]]+)\]\(\.\/([A-Z_][A-Z_]*)\)',
+            lambda m: f"[{m.group(1)}]({github_base}/{m.group(2)})",
+            content
+        )
 
         return content
 
@@ -170,11 +256,45 @@ class RunvoyDocsGenerator:
 
             flattened_files.append((display_path, display_path))
 
-        # Add all files to nav
-        for display_name, file_ref in sorted(flattened_files):
-            nav.append({display_name.replace(".md", ""): file_ref})
+        # Add all files to nav with readable titles
+        for file_path, file_ref in sorted(flattened_files):
+            readable_title = self._filename_to_title(file_path)
+            nav.append({readable_title: file_ref})
 
         return nav
+
+    def _filename_to_title(self, filename: str) -> str:
+        """Convert filename to readable title.
+
+        Examples:
+            CODE_OF_CONDUCT.md -> Code of Conduct
+            TESTING_QUICKSTART.md -> Testing Quickstart
+            CLI.md -> CLI
+            ARCHITECTURE.md -> Architecture
+        """
+        # Remove .md extension if present
+        name = filename.replace(".md", "")
+
+        # Common words that should be lowercase (except at start)
+        lowercase_words = {"of", "and", "or", "the", "a", "an", "in", "on", "at", "by"}
+
+        # Split by underscore and process each word
+        words = name.split("_")
+        title_words = []
+        for i, word in enumerate(words):
+            word_lower = word.lower()
+            # Keep all-caps acronyms as-is (e.g., CLI, AWS) unless they're common words
+            if len(word) <= 3 and word.isupper() and word_lower not in lowercase_words:
+                title_words.append(word)
+            # Common words should be lowercase (except first word)
+            elif word_lower in lowercase_words and i > 0:
+                title_words.append(word_lower)
+            else:
+                # Capitalize first letter, lowercase the rest
+                title_words.append(word.capitalize())
+
+        title = " ".join(title_words)
+        return title
 
     def _write_nav_item(self, f, item: dict, indent: int = 0):
         """Recursively write navigation items to YAML."""
@@ -214,6 +334,8 @@ class RunvoyDocsGenerator:
         """Add Runvoy README.md as index to docs."""
         readme_content = self.fetch_readme()
         if readme_content:
+            # Apply link rewriting to README
+            readme_content = self.rewrite_links(readme_content, "README.md")
             readme_path = self.local_docs_dir / "README.md"
             with open(readme_path, "w") as f:
                 f.write(readme_content)
@@ -246,6 +368,11 @@ class RunvoyDocsGenerator:
 
         # Fetch files from Runvoy repo
         files = self.fetch_markdown_files()
+
+        if not files:
+            print("\nNo markdown files could be fetched from the repository.")
+            print("Skipping site generation.")
+            return
 
         # Write files locally
         self.write_markdown_files(files)
