@@ -17,17 +17,22 @@ The generator fetches all markdown files from the [Runvoy repository](https://gi
 - Root-level documentation files (e.g., `CONTRIBUTING.md`, `SECURITY.md`, `AGENTS.md`)
 - Files in the `docs/` directory (e.g., `ARCHITECTURE.md`, `CLI.md`, `TESTING_*.md`)
 
+**Performance**: Uses GitHub's Git Trees API with recursive tree fetching for efficient single-call retrieval of all files, significantly faster than recursive directory traversal.
+
+**Versioning**: Automatically fetches the `VERSION` file from the repository and includes it in the site name (e.g., "Runvoy v1.2.3"). Falls back gracefully if the VERSION file is unavailable.
+
 The build process:
 
-1. **Fetches markdown files** from the Runvoy repo using the GitHub API
-2. **Flattens the hierarchy** - files from `docs/` subdirectory are placed at root level
-3. **Rewrites links** intelligently:
+1. **Fetches markdown files** from the Runvoy repo using the GitHub Git Trees API (efficient single-call recursive tree fetch)
+2. **Fetches VERSION file** and includes it in the site name (e.g., "Runvoy Documentation 1.2.3")
+3. **Flattens the hierarchy** - files from `docs/` subdirectory are placed at root level
+4. **Rewrites links** intelligently:
    - Removes `docs/` prefix from internal markdown links
    - Converts non-markdown file links (`.yml`, `.json`, etc.) to GitHub repository URLs
    - Handles relative paths by linking to the GitHub repository
-4. **Generates readable navigation titles** (e.g., `CODE_OF_CONDUCT.md` → "Code of Conduct", `CLI.md` → "CLI")
-5. **Builds the site** using mkdocs with the Material theme
-6. **Deploys to GitHub Pages** automatically on every push to `main`
+5. **Generates readable navigation titles** (e.g., `CODE_OF_CONDUCT.md` → "Code of Conduct", `CLI.md` → "CLI")
+6. **Builds the site** using mkdocs with the Material theme
+7. **Deploys to GitHub Pages** automatically on every push to `main` or daily via scheduled workflow
 
 ## Setup & Configuration
 
@@ -63,7 +68,9 @@ uv run mkdocs serve
 
 The site deploys automatically via GitHub Actions (`.github/workflows/build-docs.yml`):
 
-- Triggered on pushes to `main` branch or manual workflow dispatch
+- **Triggered on pushes** to `main` branch
+- **Runs daily** via scheduled cronjob (midnight UTC)
+- **Manual trigger** via workflow dispatch
 - Builds the documentation
 - Deploys to GitHub Pages
 

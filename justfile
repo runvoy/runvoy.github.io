@@ -13,3 +13,7 @@ generate:
 # Setup the project
 setup:
 	uv sync
+
+clean:
+	rm -rf docs site
+	git clean -f .

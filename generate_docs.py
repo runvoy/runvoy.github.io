@@ -238,9 +238,9 @@ class RunvoyDocsGenerator:
 
         # Fetch version to enrich site name
         version = self.fetch_version()
-        site_name = "Runvoy Documentation"
+        site_name = "Runvoy"
         if version:
-            site_name = f"Runvoy Documentation {version}"
+            site_name = f"Runvoy {version}"
 
         with open(self.mkdocs_config, "w") as f:
             # Manual YAML writing to maintain readability
@@ -366,6 +366,12 @@ class RunvoyDocsGenerator:
         print("\nGenerating site with mkdocs...")
 
         try:
+            result = subprocess.run(
+                ["mkdocs", "build"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
             print("  ✓ Site generated successfully")
             print(f"  Site location: {self.site_dir.absolute()}")
         except subprocess.CalledProcessError as e:
