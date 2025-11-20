@@ -1,0 +1,10 @@
+[project]
+name = "runvoy-docs"
+version = "0.1.0"
+description = "Docs site generator for Runvoy project"
+requires-python = ">=3.9"
+dependencies = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.0.0",
+    "requests>=2.31.0",
+]
