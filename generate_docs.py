@@ -122,8 +122,13 @@ class RunvoyDocsGenerator:
         # This handles .runvoy/*, *.yml, *.yaml, *.json, LICENSE, CHANGELOG, etc.
         def replace_non_markdown(match):
             link_text = match.group(1)
+            full_path = match.group(2)  # Full path including any prefix
             prefix = match.group(3)  # ./ or . or None
             file_path = match.group(4)  # filename without ./ prefix
+
+            # Skip absolute URLs (http:// or https://)
+            if full_path.startswith("http://") or full_path.startswith("https://"):
+                return match.group(0)  # Return original match unchanged
 
             # If there's a . prefix (e.g., .runvoy/), reconstruct with it
             if prefix == ".":
