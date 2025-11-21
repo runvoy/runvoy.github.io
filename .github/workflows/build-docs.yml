@@ -34,7 +34,13 @@ jobs:
         uses: astral-sh/setup-uv@v7
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --all-extras
+
+      - name: Run ruff linting
+        run: uv run ruff check .
+
+      - name: Run ruff formatting check
+        run: uv run ruff format --check .
 
       - name: Generate documentation
         run: uv run generate_docs.py

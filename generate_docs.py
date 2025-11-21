@@ -78,7 +78,11 @@ class RunvoyDocsGenerator:
 
                 # Skip excluded files/directories
                 path_parts = file_path.split("/")
-                if any(part.startswith(pattern) for part in path_parts for pattern in self.exclude_patterns):
+                if any(
+                    part.startswith(pattern)
+                    for part in path_parts
+                    for pattern in self.exclude_patterns
+                ):
                     continue
 
                 # Only process markdown files
@@ -118,7 +122,6 @@ class RunvoyDocsGenerator:
         # This handles .runvoy/*, *.yml, *.yaml, *.json, LICENSE, CHANGELOG, etc.
         def replace_non_markdown(match):
             link_text = match.group(1)
-            full_path = match.group(2)
             prefix = match.group(3)  # ./ or . or None
             file_path = match.group(4)  # filename without ./ prefix
 
@@ -134,18 +137,16 @@ class RunvoyDocsGenerator:
         # Group 3: optional prefix (./ or .)
         # Group 4: filename after any ./  prefix
         content = re.sub(
-            r'\[([^\]]+)\]\(((\.[/]?)?([^\)]+\.(?!md)[a-zA-Z]+))\)',
-            replace_non_markdown,
-            content
+            r"\[([^\]]+)\]\(((\.[/]?)?([^\)]+\.(?!md)[a-zA-Z]+))\)", replace_non_markdown, content
         )
 
         # Remove docs/ prefix from markdown links with .md extension
         # (e.g., [text](docs/FILE.md) -> [text](FILE.md))
-        content = re.sub(r'\[([^\]]+)\]\(docs/([^\)]+\.md)\)', r'[\1](\2)', content)
+        content = re.sub(r"\[([^\]]+)\]\(docs/([^\)]+\.md)\)", r"[\1](\2)", content)
 
         # Remove docs/ prefix and add .md extension if missing
         # (e.g., [text](docs/FILE) -> [text](FILE.md))
-        content = re.sub(r'\[([^\]]+)\]\(docs/([^\)]+)\)', r'[\1](\2.md)', content)
+        content = re.sub(r"\[([^\]]+)\]\(docs/([^\)]+)\)", r"[\1](\2.md)", content)
 
         # Handle bare markdown file references without docs/ prefix
         # (e.g., [text](CLI) -> [text](CLI.md))
@@ -155,32 +156,36 @@ class RunvoyDocsGenerator:
             link_text = match.group(1)
             link_target = match.group(2)
             # Don't add .md if it's already there or if it looks like a URL or anchor
-            if not link_target.endswith('.md') and '://' not in link_target and not link_target.startswith('#'):
+            if (
+                not link_target.endswith(".md")
+                and "://" not in link_target
+                and not link_target.startswith("#")
+            ):
                 return f"[{link_text}]({link_target}.md)"
             return match.group(0)
 
-        content = re.sub(r'\[([^\]]+)\]\(([A-Z][A-Z_]+)\)', add_md_extension, content)
+        content = re.sub(r"\[([^\]]+)\]\(([A-Z][A-Z_]+)\)", add_md_extension, content)
 
         # Handle markdown files with relative paths (./FILE.md)
         # Convert to GitHub URLs since they're not in the docs directory
         content = re.sub(
-            r'\[([^\]]+)\]\(\.\/([^\)]+\.md)\)',
+            r"\[([^\]]+)\]\(\.\/([^\)]+\.md)\)",
             lambda m: f"[{m.group(1)}]({github_base}/{m.group(2)})",
-            content
+            content,
         )
 
         # Handle non-markdown files with relative paths (./FILE or ./FILE.ext)
         # Convert to GitHub URLs
         content = re.sub(
-            r'\[([^\]]+)\]\(\.\/([^\)]+\.(?!md)[^\)]*)\)',
+            r"\[([^\]]+)\]\(\.\/([^\)]+\.(?!md)[^\)]*)\)",
             lambda m: f"[{m.group(1)}]({github_base}/{m.group(2)})",
-            content
+            content,
         )
         # Also handle files without extension (like ./VERSION)
         content = re.sub(
-            r'\[([^\]]+)\]\(\.\/([A-Z_][A-Z_]*)\)',
+            r"\[([^\]]+)\]\(\.\/([A-Z_][A-Z_]*)\)",
             lambda m: f"[{m.group(1)}]({github_base}/{m.group(2)})",
-            content
+            content,
         )
 
         return content
@@ -253,7 +258,7 @@ class RunvoyDocsGenerator:
             for item in nav:
                 self._write_nav_item(f, item, indent=2)
 
-        print(f"  ✓ mkdocs.yml created")
+        print("  ✓ mkdocs.yml created")
 
     def _build_nav(self, files: dict[str, str]) -> list:
         """Build navigation structure from files (flattened)."""
@@ -366,7 +371,7 @@ class RunvoyDocsGenerator:
         print("\nGenerating site with mkdocs...")
 
         try:
-            result = subprocess.run(
+            subprocess.run(
                 ["mkdocs", "build"],
                 check=True,
                 capture_output=True,
