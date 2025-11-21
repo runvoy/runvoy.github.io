@@ -17,10 +17,6 @@ The generator fetches all markdown files from the [Runvoy repository](https://gi
 - Root-level documentation files (e.g., `CONTRIBUTING.md`, `SECURITY.md`, `AGENTS.md`)
 - Files in the `docs/` directory (e.g., `ARCHITECTURE.md`, `CLI.md`, `TESTING_*.md`)
 
-**Performance**: Uses GitHub's Git Trees API with recursive tree fetching for efficient single-call retrieval of all files, significantly faster than recursive directory traversal.
-
-**Versioning**: Automatically fetches the `VERSION` file from the repository and includes it in the site name (e.g., "Runvoy v1.2.3"). Falls back gracefully if the VERSION file is unavailable.
-
 The build process:
 
 1. **Fetches markdown files** from the Runvoy repo using the GitHub Git Trees API (efficient single-call recursive tree fetch)
@@ -41,8 +37,19 @@ The build process:
 Managed with [uv](https://astral.sh/uv):
 
 ```bash
-uv pip install mkdocs mkdocs-material requests
+# Install runtime dependencies only
+uv sync
+
+# Install all dependencies including dev tools (ruff)
+uv sync --extra dev
+# or
+uv sync --all-extras
 ```
+
+This installs:
+
+- **Runtime dependencies**: `mkdocs`, `mkdocs-material`, `requests`
+- **Development dependencies** (with `--extra dev`): `ruff` (code linting and formatting)
 
 ### Running Locally
 
@@ -64,6 +71,33 @@ To preview the site locally:
 uv run mkdocs serve
 ```
 
+## Code Quality
+
+This project uses [ruff](https://docs.astral.sh/ruff/) for code linting and formatting:
+
+- **Linting**: Checks code for errors and style issues (pycodestyle, pyflakes, isort, flake8-bugbear, etc.)
+- **Formatting**: Ensures consistent code style across the codebase
+- **Configuration**: Defined in `pyproject.toml` under `[tool.ruff]`
+
+**Note**: Make sure dev dependencies are installed first:
+```bash
+uv sync --extra dev
+```
+
+To run linting and formatting checks locally:
+
+```bash
+uv run ruff check .
+uv run ruff format --check .
+```
+
+To auto-fix issues:
+
+```bash
+uv run ruff check --fix .
+uv run ruff format .
+```
+
 ## Deployment
 
 The site deploys automatically via GitHub Actions (`.github/workflows/build-docs.yml`):
@@ -71,6 +105,7 @@ The site deploys automatically via GitHub Actions (`.github/workflows/build-docs
 - **Triggered on pushes** to `main` branch
 - **Runs daily** via scheduled cronjob (midnight UTC)
 - **Manual trigger** via workflow dispatch
+- **Runs code quality checks** (ruff linting and formatting) before building
 - Builds the documentation
 - Deploys to GitHub Pages
 
@@ -99,7 +134,7 @@ This ensures all links work correctly on the generated documentation site while 
 
 All documentation is flattened to the root level:
 
-```
+```text
 site/
 ├── index.html              # Homepage (from README.md)
 ├── Agents/                 # From AGENTS.md
