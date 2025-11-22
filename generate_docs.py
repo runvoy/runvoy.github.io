@@ -20,6 +20,7 @@ import os
 import re
 import shutil
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -252,6 +253,9 @@ class RunvoyDocsGenerator:
         if version:
             site_name = f"Runvoy {version}"
 
+        # Generate build timestamp
+        build_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
         with open(self.mkdocs_config, "w") as f:
             # Manual YAML writing to maintain readability
             f.write(f"site_name: {site_name}\n")
@@ -259,12 +263,15 @@ class RunvoyDocsGenerator:
             f.write("site_dir: site\n")
             f.write("theme:\n")
             f.write("  name: material\n")
+            f.write(f"copyright: 'Built on {build_time}'\n")
             f.write("markdown_extensions:\n")
             f.write("  - pymdownx.superfences:\n")
             f.write("      custom_fences:\n")
             f.write("        - name: mermaid\n")
             f.write("          class: mermaid\n")
             f.write("          format: !!python/name:pymdownx.superfences.fence_code_format\n")
+            f.write("extra:\n")
+            f.write(f"  build_time: '{build_time}'\n")
             f.write("nav:\n")
             for item in nav:
                 self._write_nav_item(f, item, indent=2)
