@@ -259,6 +259,12 @@ class RunvoyDocsGenerator:
             f.write("site_dir: site\n")
             f.write("theme:\n")
             f.write("  name: material\n")
+            f.write("markdown_extensions:\n")
+            f.write("  - pymdownx.superfences:\n")
+            f.write("      custom_fences:\n")
+            f.write("        - name: mermaid\n")
+            f.write("          class: mermaid\n")
+            f.write("          format: !!python/name:pymdownx.superfences.fence_code_format\n")
             f.write("nav:\n")
             for item in nav:
                 self._write_nav_item(f, item, indent=2)
