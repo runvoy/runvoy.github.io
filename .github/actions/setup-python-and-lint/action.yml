@@ -1,0 +1,26 @@
+name: 'Setup Python and Run Linting'
+description: 'Set up Python, install uv, and run ruff linting and formatting checks'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.x'
+
+    - name: Install the latest version of uv
+      uses: astral-sh/setup-uv@v7
+
+    - name: Install dependencies
+      shell: bash
+      run: uv sync --all-extras
+
+    - name: Run ruff linting
+      shell: bash
+      run: uv run ruff check .
+
+    - name: Run ruff formatting check
+      shell: bash
+      run: uv run ruff format --check .
+
