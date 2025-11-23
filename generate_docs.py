@@ -267,15 +267,13 @@ class RunvoyDocsGenerator:
 
         # Read template file
         template_path = Path(__file__).parent / "templates" / "mkdocs.yml.template"
-        with open(template_path, "r") as f:
+        with open(template_path) as f:
             template_content = f.read()
 
         # Substitute placeholders
         template = Template(template_content)
         config_content = template.substitute(
-            site_name=site_name,
-            build_time=build_time,
-            nav_section=nav_section
+            site_name=site_name, build_time=build_time, nav_section=nav_section
         )
 
         # Write the final configuration
