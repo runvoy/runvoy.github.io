@@ -21,7 +21,9 @@ import re
 import shutil
 import subprocess
 from datetime import datetime, timezone
+from io import StringIO
 from pathlib import Path
+from string import Template
 from typing import Optional
 
 import requests
@@ -241,7 +243,7 @@ class RunvoyDocsGenerator:
             return ""
 
     def create_mkdocs_config(self, files: dict[str, str]):
-        """Generate mkdocs.yml configuration."""
+        """Generate mkdocs.yml configuration using template."""
         print("\nGenerating mkdocs.yml configuration...")
 
         # Build navigation from file structure
@@ -256,43 +258,29 @@ class RunvoyDocsGenerator:
         # Generate build timestamp
         build_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
+        # Generate nav section as YAML string
+        nav_buffer = StringIO()
+        nav_buffer.write("nav:\n")
+        for item in nav:
+            self._write_nav_item(nav_buffer, item, indent=2)
+        nav_section = nav_buffer.getvalue()
+
+        # Read template file
+        template_path = Path(__file__).parent / "templates" / "mkdocs.yml.template"
+        with open(template_path, "r") as f:
+            template_content = f.read()
+
+        # Substitute placeholders
+        template = Template(template_content)
+        config_content = template.substitute(
+            site_name=site_name,
+            build_time=build_time,
+            nav_section=nav_section
+        )
+
+        # Write the final configuration
         with open(self.mkdocs_config, "w") as f:
-            # Manual YAML writing to maintain readability
-            f.write(f"site_name: {site_name}\n")
-            f.write("docs_dir: docs\n")
-            f.write("site_dir: site\n")
-            f.write("theme:\n")
-            f.write("  name: material\n")
-            f.write("  palette:\n")
-            f.write("    # Palette toggle for automatic mode\n")
-            f.write('    - media: "(prefers-color-scheme)"\n')
-            f.write("      toggle:\n")
-            f.write("        icon: material/brightness-auto\n")
-            f.write("        name: Switch to light mode\n")
-            f.write("    # Palette toggle for light mode\n")
-            f.write('    - media: "(prefers-color-scheme: light)"\n')
-            f.write("      scheme: default\n")
-            f.write("      toggle:\n")
-            f.write("        icon: material/brightness-7\n")
-            f.write("        name: Switch to dark mode\n")
-            f.write("    # Palette toggle for dark mode\n")
-            f.write('    - media: "(prefers-color-scheme: dark)"\n')
-            f.write("      scheme: slate\n")
-            f.write("      toggle:\n")
-            f.write("        icon: material/brightness-4\n")
-            f.write("        name: Switch to system preference\n")
-            f.write(f"copyright: 'Built on {build_time}'\n")
-            f.write("markdown_extensions:\n")
-            f.write("  - pymdownx.superfences:\n")
-            f.write("      custom_fences:\n")
-            f.write("        - name: mermaid\n")
-            f.write("          class: mermaid\n")
-            f.write("          format: !!python/name:pymdownx.superfences.fence_code_format\n")
-            f.write("extra:\n")
-            f.write(f"  build_time: '{build_time}'\n")
-            f.write("nav:\n")
-            for item in nav:
-                self._write_nav_item(f, item, indent=2)
+            f.write(config_content)
 
         print("  ✓ mkdocs.yml created")
 
