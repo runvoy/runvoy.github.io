@@ -17,3 +17,9 @@ setup:
 clean:
 	rm -rf docs site
 	git clean -f .
+
+lint:
+	uv run ruff format --check .
+
+lint-fix:
+	uv run ruff format .
