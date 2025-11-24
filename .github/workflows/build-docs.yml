@@ -10,8 +10,9 @@ on:
 
 permissions:
   contents: read
-  pages: write
   id-token: write
+  packages: read
+  pages: write
 
 concurrency:
   group: "pages"
@@ -24,6 +25,16 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+
+      - name: Download Runvoy docs
+        uses: runvoy/ghcr-artifacts-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          mode: download
+          name: runvoy-docs
+          tag: latest
+          files: gomarkdoc.tar.gz
 
       - name: Setup Python and Run Linting
         uses: ./.github/actions/setup-python-and-lint
