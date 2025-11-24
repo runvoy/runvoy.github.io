@@ -9,7 +9,6 @@ venv/
 ENV/
 build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -45,3 +44,6 @@ Thumbs.db
 # uv
 uv.lock
 .envrc
+
+# GitHub Actions
+node_modules/

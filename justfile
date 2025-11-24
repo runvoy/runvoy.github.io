@@ -24,3 +24,7 @@ lint:
 lint-fix:
 	uv run ruff check --fix .
 	uv run ruff format --check .
+
+[working-directory: '.github/actions/cleanup-deployments']
+build-cleanup-action:
+	npm run build

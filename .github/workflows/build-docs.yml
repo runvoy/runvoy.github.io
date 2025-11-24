@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  deployments: write
   id-token: write
   packages: read
   pages: write
@@ -59,6 +60,18 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Cleanup old deployments
+        if: success()
+        uses: ./.github/actions/cleanup-deployments
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          environment: github-pages
+          keep_count: '10'
+          exclude_most_recent: 'true'

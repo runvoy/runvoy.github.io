@@ -1,0 +1,27 @@
+name: 'Cleanup Deployments'
+description: 'Delete old deployments, keeping only the last N deployments for an environment'
+
+inputs:
+  token:
+    description: 'GitHub token with deployments:write permission'
+    required: true
+  environment:
+    description: 'Environment name to clean up deployments for'
+    required: true
+  keep_count:
+    description: 'Number of recent deployments to keep (default: 10)'
+    required: false
+    default: '10'
+  exclude_deployment_id:
+    description: 'Optional deployment ID to exclude from deletion (e.g., current deployment)'
+    required: false
+    default: ''
+  exclude_most_recent:
+    description: 'If true, automatically exclude the most recent deployment from deletion'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
+
