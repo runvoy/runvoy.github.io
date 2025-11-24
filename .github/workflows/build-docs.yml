@@ -34,7 +34,7 @@ jobs:
           mode: download
           name: runvoy-docs
           tag: latest
-          files: gomarkdoc.tar.gz
+          files: gomarkdoc
 
       - name: Setup Python and Run Linting
         uses: ./.github/actions/setup-python-and-lint

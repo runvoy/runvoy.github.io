@@ -19,7 +19,8 @@ clean:
 	git clean -f .
 
 lint:
-	uv run ruff format --check .
+	uv run ruff check .
 
 lint-fix:
-	uv run ruff format .
+	uv run ruff check --fix .
+	uv run ruff format --check .

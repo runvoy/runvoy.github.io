@@ -49,6 +49,8 @@ class RunvoyDocsGenerator:
         self.mkdocs_config = Path("mkdocs.yml")
         # Files to exclude from the docs
         self.exclude_patterns = {"LICENSE", "CHANGELOG", ".gitignore", ".github"}
+        # Path to the gomarkdoc SGML file
+        self.gomarkdoc_file = Path("gomarkdoc")
 
     def fetch_markdown_files(self) -> dict[str, str]:
         """
@@ -290,8 +292,10 @@ class RunvoyDocsGenerator:
         if "README.md" in files:
             nav.append({"Home": "README.md"})
 
-        # Flatten all files and add to nav in sorted order
-        flattened_files = []
+        # Separate regular docs from API reference
+        regular_files = []
+        api_reference_file = None
+
         for file_path in sorted(files.keys()):
             if file_path == "README.md":
                 continue
@@ -301,12 +305,20 @@ class RunvoyDocsGenerator:
             if file_path.startswith("docs/"):
                 display_path = file_path[5:]  # Remove "docs/" prefix
 
-            flattened_files.append((display_path, display_path))
+            # Handle API reference specially
+            if display_path == "API_REFERENCE.md":
+                api_reference_file = display_path
+            else:
+                regular_files.append((display_path, display_path))
 
-        # Add all files to nav with readable titles
-        for file_path, file_ref in sorted(flattened_files):
+        # Add regular documentation files
+        for file_path, file_ref in sorted(regular_files):
             readable_title = self._filename_to_title(file_path)
             nav.append({readable_title: file_ref})
+
+        # Add API Reference in root nav if it exists
+        if api_reference_file:
+            nav.append({"API Reference": api_reference_file})
 
         return nav
 
@@ -388,6 +400,91 @@ class RunvoyDocsGenerator:
                 f.write(readme_content)
             print("  ✓ README.md added to docs")
 
+    def process_gomarkdoc(self) -> dict[str, str]:
+        """
+        Process Go documentation from gomarkdoc SGML file.
+        Converts SGML to markdown and returns a dict of {file_path: content}.
+        """
+        if not self.gomarkdoc_file.exists():
+            print(f"Warning: {self.gomarkdoc_file} not found. Skipping Go documentation.")
+            return {}
+
+        print(f"\nProcessing Go documentation from {self.gomarkdoc_file}...")
+        files = {}
+
+        try:
+            # Read the SGML content
+            with open(self.gomarkdoc_file, encoding="utf-8") as f:
+                sgml_content = f.read()
+
+            # Convert SGML to markdown
+            # Basic SGML to markdown conversion for gomarkdoc output
+            markdown_content = self._sgml_to_markdown(sgml_content)
+
+            # Save as API reference documentation in root
+            files["API_REFERENCE.md"] = markdown_content
+            print("  ✓ API_REFERENCE.md")
+
+        except (OSError, UnicodeDecodeError) as e:
+            print(f"Error processing {self.gomarkdoc_file}: {e}")
+            return {}
+
+        return files
+
+    def _sgml_to_markdown(self, sgml_content: str) -> str:
+        """
+        Convert SGML content to markdown.
+        Handles common SGML tags used by gomarkdoc.
+        """
+        content = sgml_content
+
+        # Convert common SGML tags to markdown
+        # Package declarations
+        content = re.sub(r"<package[^>]*>([^<]+)</package>", r"## Package: \1", content)
+
+        # Function/method declarations
+        content = re.sub(r"<func[^>]*>([^<]+)</func>", r"### \1", content)
+        content = re.sub(r"<method[^>]*>([^<]+)</method>", r"### \1", content)
+
+        # Type declarations
+        content = re.sub(r"<type[^>]*>([^<]+)</type>", r"### Type: \1", content)
+
+        # Code blocks
+        content = re.sub(r"<code[^>]*>(.*?)</code>", r"```go\n\1\n```", content, flags=re.DOTALL)
+
+        # Links
+        content = re.sub(r"<a[^>]*href=['\"]([^'\"]+)['\"][^>]*>([^<]+)</a>", r"[\2](\1)", content)
+
+        # Paragraphs
+        content = re.sub(r"<p[^>]*>", "", content)
+        content = re.sub(r"</p>", "\n\n", content)
+
+        # Lists
+        content = re.sub(r"<ul[^>]*>", "", content)
+        content = re.sub(r"</ul>", "\n", content)
+        content = re.sub(r"<ol[^>]*>", "", content)
+        content = re.sub(r"</ol>", "\n", content)
+        content = re.sub(r"<li[^>]*>", "- ", content)
+        content = re.sub(r"</li>", "\n", content)
+
+        # Emphasis
+        content = re.sub(r"<em[^>]*>([^<]+)</em>", r"*\1*", content)
+        content = re.sub(r"<strong[^>]*>([^<]+)</strong>", r"**\1**", content)
+
+        # Headings
+        content = re.sub(r"<h1[^>]*>([^<]+)</h1>", r"# \1", content)
+        content = re.sub(r"<h2[^>]*>([^<]+)</h2>", r"## \1", content)
+        content = re.sub(r"<h3[^>]*>([^<]+)</h3>", r"### \1", content)
+        content = re.sub(r"<h4[^>]*>([^<]+)</h4>", r"#### \1", content)
+
+        # Remove remaining SGML tags
+        content = re.sub(r"<[^>]+>", "", content)
+
+        # Clean up extra whitespace
+        content = re.sub(r"\n{3,}", "\n\n", content)
+
+        return content.strip()
+
     def generate_site(self):
         """Build the site using mkdocs."""
         print("\nGenerating site with mkdocs...")
@@ -415,6 +512,12 @@ class RunvoyDocsGenerator:
 
         # Fetch files from Runvoy repo
         files = self.fetch_markdown_files()
+
+        # Process Go documentation from gomarkdoc SGML file
+        gomarkdoc_files = self.process_gomarkdoc()
+
+        # Merge Go documentation files into main files dict
+        files.update(gomarkdoc_files)
 
         if not files:
             print("\nNo markdown files could be fetched from the repository.")
