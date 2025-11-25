@@ -69,7 +69,7 @@ jobs:
 
       - name: Cleanup old deployments
         if: success()
-        uses: ./.github/actions/cleanup-deployments
+        uses: runvoy/cleanup-deployments-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           environment: github-pages
