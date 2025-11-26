@@ -48,7 +48,7 @@ class RunvoyDocsGenerator:
         self.site_dir = Path("site")
         self.mkdocs_config = Path("mkdocs.yml")
         # Files to exclude from the docs
-        self.exclude_patterns = {"LICENSE", "CHANGELOG", ".gitignore", ".github"}
+        self.exclude_patterns = {"LICENSE", "CHANGELOG", "AGENTS", ".gitignore", ".github"}
         # Path to the gomarkdoc SGML file
         self.gomarkdoc_file = Path("gomarkdoc")
 
